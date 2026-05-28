@@ -16,3 +16,5 @@ data/cache/
 # Model files, optional for now
 *.pkl
 *.joblib
+
+.idea/
