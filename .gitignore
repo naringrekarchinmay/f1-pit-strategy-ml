@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Virtual environment
+venv/
+.env
+
+# FastF1 cache
+data/cache/
+
+# OS files
+.DS_Store
+
+# Model files, optional for now
+*.pkl
+*.joblib

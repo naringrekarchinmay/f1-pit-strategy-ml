@@ -1,0 +1,7 @@
+fastf1
+pandas
+numpy
+matplotlib
+scikit-learn
+streamlit
+joblib
