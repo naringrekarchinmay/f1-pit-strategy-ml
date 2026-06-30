@@ -147,6 +147,10 @@ def combine_race_files(summary_df: pd.DataFrame, year: int, write: bool = True) 
     successful = summary_df[summary_df["status"] == "success"]
     for _, row in successful.iterrows():
         path = Path(str(row["output_path"]))
+        # output_path is stored relative to the project root for portability;
+        # resolve it so the file can be read regardless of the current dir.
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
         if not path.is_file():
             logger.warning("Skipping %s: file not found at %s", row["race_name"], path)
             continue

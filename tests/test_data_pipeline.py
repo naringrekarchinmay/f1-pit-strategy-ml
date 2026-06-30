@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.data.load_fastf1_data import (
     normalize_race_name,
     extract_lap_data,
+    relative_to_root,
     STANDARD_LAP_COLUMNS,
 )
 
@@ -138,6 +139,15 @@ def test_no_duplicate_laps_per_driver():
     assert not out.duplicated(subset=keys).any()
 
 
+def test_relative_to_root_strips_absolute_prefix():
+    abs_path = PROJECT_ROOT / "data" / "processed" / "2025" / "monaco" / "race_laps.csv"
+    rel = relative_to_root(abs_path)
+    # Portable: no leading slash, no machine-specific home directory.
+    assert rel == "data/processed/2025/monaco/race_laps.csv"
+    assert not rel.startswith("/")
+    assert "Users" not in rel
+
+
 # --------------------------------------------------------------------------- #
 # Phase 11: data-quality checks on the generated model-ready dataset.
 # These run only when the artifact exists (skip otherwise so CI without data
@@ -150,6 +160,9 @@ MODEL_READY = PROJECT_ROOT / "data/processed/2025/model_ready_all_tracks.csv"
 LAPS_ALL = PROJECT_ROOT / "data/processed/2025/laps_all_tracks.csv"
 
 
+SUMMARY = PROJECT_ROOT / "outputs/reports/all_tracks_build_summary.csv"
+
+
 @pytest.mark.skipif(not LAPS_ALL.exists(), reason="combined laps dataset not built")
 def test_laps_all_tracks_quality():
     df = pd.read_csv(LAPS_ALL)
@@ -158,6 +171,19 @@ def test_laps_all_tracks_quality():
         assert df[col].notna().all(), f"missing values in {col}"
     assert (df["lap_number"] > 0).all()
     assert not df.duplicated(subset=["year", "race_name", "driver", "lap_number"]).any()
+    # Provenance paths must be portable (relative), not machine-specific.
+    if "source_file" in df.columns:
+        assert not df["source_file"].astype(str).str.startswith("/").any()
+        assert not df["source_file"].astype(str).str.contains("Users").any()
+
+
+@pytest.mark.skipif(not SUMMARY.exists(), reason="build summary not generated")
+def test_build_summary_paths_are_relative():
+    df = pd.read_csv(SUMMARY)
+    paths = df["output_path"].dropna().astype(str)
+    paths = paths[paths != ""]
+    assert not paths.str.startswith("/").any(), "absolute paths leaked into summary"
+    assert not paths.str.contains("Users").any(), "machine-specific paths in summary"
 
 
 @pytest.mark.skipif(not MODEL_READY.exists(), reason="model-ready dataset not built")
