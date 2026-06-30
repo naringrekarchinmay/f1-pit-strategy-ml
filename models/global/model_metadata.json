@@ -1,0 +1,48 @@
+{
+  "target": "will_pit_next_3_laps",
+  "best_model": "logistic_regression",
+  "features": [
+    "round_number",
+    "lap_number",
+    "total_laps",
+    "lap_percentage",
+    "position",
+    "position_change",
+    "tyre_life",
+    "stint",
+    "fresh_tyre",
+    "laps_since_pit",
+    "current_stint_lap",
+    "is_pit_lap",
+    "pit_stop_count_so_far",
+    "has_pitted",
+    "laps_since_last_pit",
+    "is_green_flag",
+    "is_safety_car",
+    "is_vsc",
+    "safety_car_or_vsc_flag",
+    "compound_HARD",
+    "compound_INTERMEDIATE",
+    "compound_MEDIUM",
+    "compound_SOFT",
+    "compound_UNKNOWN"
+  ],
+  "validation": "GroupShuffleSplit(test_size=0.25) on race_name (race-aware)",
+  "class_balance": {
+    "0": 0.9149,
+    "1": 0.0851
+  },
+  "n_rows": 26689,
+  "n_train_races": 18,
+  "n_test_races": 6,
+  "test_races": [
+    "Abu Dhabi",
+    "Emilia Romagna",
+    "Great Britain",
+    "Italy",
+    "Monaco",
+    "Qatar"
+  ],
+  "sklearn_version": "1.6.1",
+  "trained_at": "2026-06-30T01:36:40.817619+00:00"
+}

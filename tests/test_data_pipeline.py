@@ -136,3 +136,50 @@ def test_no_duplicate_laps_per_driver():
     out = extract_lap_data(session, 2025, "Testland", "R")
     keys = ["year", "race_name", "driver", "lap_number"]
     assert not out.duplicated(subset=keys).any()
+
+
+# --------------------------------------------------------------------------- #
+# Phase 11: data-quality checks on the generated model-ready dataset.
+# These run only when the artifact exists (skip otherwise so CI without data
+# still passes).
+# --------------------------------------------------------------------------- #
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+
+MODEL_READY = PROJECT_ROOT / "data/processed/2025/model_ready_all_tracks.csv"
+LAPS_ALL = PROJECT_ROOT / "data/processed/2025/laps_all_tracks.csv"
+
+
+@pytest.mark.skipif(not LAPS_ALL.exists(), reason="combined laps dataset not built")
+def test_laps_all_tracks_quality():
+    df = pd.read_csv(LAPS_ALL)
+    for col in ["year", "race_name", "driver", "lap_number"]:
+        assert col in df.columns
+        assert df[col].notna().all(), f"missing values in {col}"
+    assert (df["lap_number"] > 0).all()
+    assert not df.duplicated(subset=["year", "race_name", "driver", "lap_number"]).any()
+
+
+@pytest.mark.skipif(not MODEL_READY.exists(), reason="model-ready dataset not built")
+def test_model_ready_quality():
+    df = pd.read_csv(MODEL_READY)
+    for col in ["year", "race_name", "driver", "lap_number", "will_pit_next_3_laps"]:
+        assert col in df.columns
+        assert df[col].notna().all(), f"missing values in {col}"
+    assert (df["lap_number"] > 0).all()
+    # Target has both classes when enough data is available.
+    assert set(df["will_pit_next_3_laps"].unique()) == {0, 1}
+    assert not df.duplicated(subset=["year", "race_name", "driver", "lap_number"]).any()
+    # Feature engineering must not produce infinite values (raw timing columns
+    # may legitimately be NaN, e.g. sector times on pit laps).
+    num = df.select_dtypes(include=[np.number])
+    assert not np.isinf(num.to_numpy()).any(), "infinite values in numeric columns"
+    # Engineered feature columns specifically must be fully populated (no NaN).
+    from src.features.build_features import FEATURE_COLUMNS
+
+    # Exclude raw FastF1 passthrough fields that can legitimately be missing.
+    raw_passthrough = {"position", "compound", "tyre_life", "stint", "fresh_tyre"}
+    engineered = [
+        c for c in FEATURE_COLUMNS if c in df.columns and c not in raw_passthrough
+    ]
+    assert df[engineered].notna().all().all(), "NaN in engineered feature columns"

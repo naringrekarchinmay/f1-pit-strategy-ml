@@ -1,238 +1,193 @@
-# F1 Pit Strategy ML
+# F1 Pit Strategy ML — 2025 Season
 
-A Python machine learning and race analytics project focused on Formula 1 race pace, tyre degradation, and lap-time prediction.
+This project analyzes Formula 1 race strategy across the **2025 season** using
+[FastF1](https://docs.fastf1.dev/) data. It expands from a Monaco-focused
+prototype into a reusable **multi-track machine learning pipeline** for studying
+pit-stop timing, tyre-stint behaviour, track-status impact, and race-specific
+strategy differences.
 
-## Project Overview
+> ⚠️ **Honest scope:** the predictions here are **exploratory and educational**.
+> This is not professional race-strategy software, and the model is a modest
+> baseline (see [Limitations](docs/limitations.md)).
 
-This project uses Formula 1 race data to explore how machine learning can be used to understand race pace, tyre degradation, and lap-time prediction.
+## Problem statement & motivation
 
-The current version focuses on the **2025 Monaco Grand Prix** using FastF1 data.
+Pit strategy is one of the biggest levers a team controls during a race. *When*
+a driver pits — driven by tyre degradation, stint length, track position, and
+safety-car/VSC windows — can decide the result. This project asks a focused,
+learnable version of that question:
 
-Monaco was selected as the starting race because it is one of the most strategy-sensitive circuits on the Formula 1 calendar. Since overtaking is difficult, lap time, tyre life, track position, pit timing, traffic, and race context can strongly influence race outcomes.
+> **Can we predict, from information available *up to the current lap*, whether a
+> driver will pit within the next 3 laps?** (target: `will_pit_next_3_laps`)
 
-## Current Scope
+## Project evolution: Monaco → all tracks
 
-The first version of this project focuses on:
+- **Original case study (preserved):** a Monaco 2025 lap-time analysis with
+  notebooks, tyre-degradation study, and a Monaco lap-time model. These files
+  remain in `notebooks/`, `data/raw/2025_monaco_*`, and `models/monaco_2025_*`.
+- **Now:** a reusable pipeline that loads *any* 2025 race into a standardized
+  schema, builds a combined dataset, engineers leakage-safe features, trains a
+  **race-aware** pit-prediction model, and surfaces everything in a multi-page
+  dashboard.
 
-* Collecting Monaco 2025 race data using FastF1
-* Cleaning lap-level race data
-* Exploring race pace by driver and compound
-* Creating a stricter tyre analysis dataset
-* Estimating tyre degradation by compound, driver, and stint
-* Engineering machine-learning features
-* Training lap-time prediction models
-* Building an interactive Streamlit dashboard
+## Data source
 
-## Main ML Question
+[FastF1](https://docs.fastf1.dev/) (lap timing, tyre/stint, pit, track-status,
+and weather data). Races are resolved to an **exact calendar round** to avoid
+ambiguous name matching (an early bug had mapped "Great Britain" to the Austrian
+GP — see [modeling notes](docs/modeling_notes.md)).
 
-Can machine learning predict Monaco 2025 race lap times using driver, team, tyre compound, tyre age, stint, lap number, race progress, track status, pit-lap status, and recent pace features?
+## Project workflow
 
-## Project Phases
+See [docs/project_workflow.md](docs/project_workflow.md) for the full diagram.
 
-### Phase 1: Data Collection
-
-Loaded the 2025 Monaco Grand Prix race session using FastF1 and saved raw lap, weather, and result data.
-
-### Phase 2: Data Cleaning and EDA
-
-Converted lap times into seconds, identified pit laps, cleaned lap-level data, removed abnormal laps for exploratory analysis, and created charts for race pace, tyre compound usage, tyre life, and driver consistency.
-
-### Phase 3: Tyre Degradation Analysis
-
-Estimated tyre degradation using the relationship between tyre life and lap time.
-
-The analysis focused mainly on green-flag laps to reduce distortion from abnormal race conditions such as yellow flags, VSC periods, pit laps, and mixed track-status laps.
-
-### Phase 4: Feature Engineering for Machine Learning
-
-Created a machine-learning-ready dataset for Monaco 2025 lap-time prediction.
-
-Engineered features included:
-
-* Race progress
-* Tyre life
-* Tyre life squared
-* Stint progress
-* Driver median pace
-* Team median pace
-* Previous lap time
-* Rolling 3-lap average
-* Rolling 5-lap average
-* Pit-lap indicator
-* Green-flag indicator
-* Track status
-
-The final ML dataset was saved as:
-
-`data/processed/2025_monaco_ml_dataset.csv`
-
-### Phase 5: Model Training and Comparison
-
-Trained and compared multiple regression models to predict `LapTimeSeconds`.
-
-Models tested:
-
-* Linear Regression
-* Random Forest Regressor
-* Gradient Boosting Regressor
-
-The best-performing model was the **Random Forest Regressor**.
-
-| Model             |   MAE |  RMSE |    R² |  MAPE |
-| ----------------- | ----: | ----: | ----: | ----: |
-| Random Forest     | 0.624 | 0.953 | 0.974 | 0.786 |
-| Gradient Boosting | 0.674 | 1.034 | 0.969 | 0.844 |
-| Linear Regression | 2.260 | 3.815 | 0.575 | 2.724 |
-
-The Random Forest model predicted Monaco 2025 lap times within approximately **0.62 seconds on average** on the test set.
-
-Important note: this first model uses a random train/test split within one race, so the results are useful for a first learning version but may be optimistic. A stronger future validation approach will train on multiple races and test on an unseen race.
-
-### Phase 6: Streamlit Dashboard
-
-Built an interactive Streamlit dashboard with pages for:
-
-* Project overview
-* Race overview
-* Driver pace comparison
-* Tyre degradation analysis
-* Model performance
-* Lap-time prediction
-
-The dashboard uses the trained Random Forest model to estimate Monaco 2025 lap times based on driver, team, tyre compound, tyre age, lap number, stint, position, track status, pit-lap status, and recent pace features.
-
-## Early Findings
-
-* Monaco 2025 showed mild tyre degradation overall.
-* Hard tyres showed the clearest positive degradation trend.
-* Medium tyres were almost flat in degradation trend.
-* Soft tyre results should be interpreted carefully because there were fewer soft-tyre laps.
-* Driver and stint-level degradation should be interpreted carefully because Monaco lap times are strongly affected by traffic, track position, fuel burn, and race pace management.
-* Random Forest performed better than Linear Regression, suggesting that lap-time prediction has non-linear patterns.
-* Race progress, lap number, previous lap time, pit-lap status, stint progress, and track status were among the most important model features.
-
-## Dashboard Preview
-
-The Streamlit app includes:
-
-1. **Project Overview**
-   Summary of the project, model comparison, and current project status.
-
-2. **Race Overview**
-   High-level Monaco 2025 race dataset summary, average pace by driver, and compound usage.
-
-3. **Driver Pace**
-   Interactive comparison of selected drivers across the race.
-
-4. **Tyre Degradation**
-   Tyre life vs lap time analysis, compound degradation, and driver-level degradation trends.
-
-5. **Model Performance**
-   Model comparison, actual vs predicted lap times, and prediction error distribution.
-
-6. **Lap Time Predictor**
-   Manual input interface that uses the trained Random Forest model to predict expected lap time.
-
-## How to Run the Project
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/naringrekarchinmay/f1-pit-strategy-ml.git
-cd f1-pit-strategy-ml
+```text
+FastF1 → load_fastf1_data → build_all_tracks_dataset → build_features
+       → train_global_model → {track_comparison, explain_model} → Streamlit
 ```
 
-### 2. Install requirements
+## Repository structure
 
-```bash
-pip install -r requirements.txt
+```text
+f1-pit-strategy-ml/
+├── app/
+│   ├── streamlit_app.py            # multi-track dashboard entry
+│   ├── _shared.py                  # cached loaders + sidebar filters
+│   └── pages/                      # 5 dashboard pages
+├── data/
+│   ├── raw/                        # FastF1 raw (incl. original Monaco CSVs)
+│   └── processed/2025/
+│       ├── <race>/race_laps.csv    # per-race standardized laps + weather.csv
+│       ├── laps_all_tracks.csv     # combined all-track laps
+│       └── model_ready_all_tracks.csv
+├── models/
+│   ├── global/                     # pit_strategy_model.pkl + metadata
+│   └── monaco_2025_*.pkl           # original Monaco case study
+├── notebooks/                      # original Monaco notebooks (01–05)
+├── outputs/
+│   ├── figures/{track_comparison,explainability}/ + global model figures
+│   └── reports/                    # metrics + markdown summaries
+├── src/
+│   ├── data/                       # load_fastf1_data, build_all_tracks_dataset
+│   ├── features/                   # build_features
+│   ├── models/                     # train_global_model, explain_model
+│   └── analysis/                   # track_comparison
+├── tests/                          # pytest suite
+└── docs/                           # data dictionary, workflow, modeling, limitations
 ```
 
-### 3. Run the Streamlit app
+## Dataset structure
+
+The standardized lap schema (29 columns) is documented in
+[docs/data_dictionary.md](docs/data_dictionary.md). The combined 2025 dataset
+(`data/processed/2025/laps_all_tracks.csv`) covers **24 races, ~26,700 laps, 21
+drivers, 10 teams**.
+
+## Feature engineering
+
+`src/features/build_features.py` turns the combined laps into a model-ready
+dataset with **leakage-safe** features only (race context, position, tyre/stint,
+past-only pit history, track-status flags). See
+[docs/modeling_notes.md](docs/modeling_notes.md) for the full feature list and
+the columns explicitly excluded to prevent leakage.
+
+## Modeling approach & race-aware validation
+
+Baselines: **Logistic Regression**, **Random Forest**, **Gradient Boosting**.
+
+**Validation is race-aware:** we use `GroupShuffleSplit` on `race_name`, holding
+*entire races* out of training. We deliberately avoid plain random row splitting,
+which leaks within-race correlations and inflates scores. Headline numbers are
+reported on held-out races only.
+
+### Results (held-out races)
+
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
+|---|---|---|---|---|---|
+| Logistic Regression | 0.72 | 0.16 | 0.50 | **0.24** | 0.70 |
+| Random Forest | 0.90 | 0.25 | 0.07 | 0.11 | 0.69 |
+| Gradient Boosting | 0.89 | 0.22 | 0.07 | 0.11 | 0.72 |
+
+The target is imbalanced (~8.5% positive), so high tree-model accuracy mostly
+reflects the majority class. F1/recall show the real difficulty — these are
+honest, modest baselines, not a solved problem.
+
+## Key findings from track comparison
+
+- **Most pit stops per driver:** Australia (~4.8 — a wet, chaotic race), Canada
+  (~4.2), Spain (~2.9).
+- **Longest average stints:** Singapore (~28.6 laps), Hungary (~27.9), Mexico
+  City (~26.9).
+- Compound usage and pit-timing distributions vary strongly by circuit; see
+  [outputs/reports/track_comparison_summary.md](outputs/reports/track_comparison_summary.md)
+  and figures in `outputs/figures/track_comparison/`.
+
+## Explainability summary
+
+Permutation importance ranks **race-progress** features highest — `lap_percentage`,
+`lap_number`, `stint`, `pit_stop_count_so_far`, `total_laps`. Safety-car/VSC
+flags contribute weakly for this target. Full write-up:
+[outputs/reports/model_explainability_summary.md](outputs/reports/model_explainability_summary.md).
+
+## Streamlit dashboard
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-## Project Structure
+Pages: **Project Overview**, **Track Explorer**, **Strategy Comparison**,
+**Model Predictions**, **Explainability**. The app degrades gracefully — if an
+artifact (model, metrics, figures) is missing it shows guidance instead of
+crashing.
 
-```text
-f1-pit-strategy-ml/
-│
-├── app/
-│   └── streamlit_app.py
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── models/
-│   ├── monaco_2025_lap_time_model.pkl
-│   └── monaco_2025_model_pipeline.pkl
-│
-├── notebooks/
-│   ├── 01_data_collection_fastf1.ipynb
-│   ├── 02_data_cleaning_eda.ipynb
-│   ├── 03_tyre_degradation_analysis.ipynb
-│   ├── 04_feature_engineering.ipynb
-│   └── 05_model_training.ipynb
-│
-├── outputs/
-│   ├── figures/
-│   └── metrics/
-│
-├── src/
-│
-├── requirements.txt
-├── README.md
-└── .gitignore
+## How to run the pipeline
+
+```bash
+pip install -r requirements.txt
+
+# Build per-race + combined laps
+python src/data/load_fastf1_data.py --year 2025 --race Monaco --session R
+python src/data/build_all_tracks_dataset.py --year 2025 --session R
+
+# Feature engineering + training
+python src/features/build_features.py --year 2025 --target-window 3
+python src/models/train_global_model.py --year 2025 --target will_pit_next_3_laps
+
+# Analysis + explainability
+python src/analysis/track_comparison.py --year 2025
+python src/models/explain_model.py --year 2025
+
+# Dashboard
+streamlit run app/streamlit_app.py
 ```
 
-## Tools Used
+## How to run tests
 
-* Python
-* FastF1
-* pandas
-* NumPy
-* Matplotlib
-* Plotly
-* scikit-learn
-* Streamlit
-* joblib
+```bash
+pytest
+```
 
-## Current Limitations
+The suite covers race-name normalization, the standardized schema, feature
+engineering (target logic, track-status flags, pit history, leakage guards),
+race-aware splitting, model fitting on a small sample, and data-quality checks on
+the generated datasets.
 
-This is a first working version of the project, so there are some important limitations:
+## Limitations
 
-* The current model is trained and tested only on Monaco 2025.
-* The model uses a random train/test split within the same race.
-* Weather features were not merged into the first ML dataset.
-* The lap-time predictor is a live-race style estimator because it uses previous lap and rolling pace features.
-* The model should not be treated as an official F1 strategy tool.
-* Driver-level tyre degradation should be interpreted carefully because lap times are affected by traffic, fuel burn, race management, and track position.
+Summarized in [docs/limitations.md](docs/limitations.md). Highlights: modest
+predictive performance, an imbalanced target, weather not yet used as a feature,
+pit detection dependent on FastF1 timing, and a single season with no
+cross-season validation. **Not** strategy software.
 
-## Next Phases
+## Future improvements
 
-Planned future improvements:
+- Join weather into the model-ready features.
+- Cross-season training/validation.
+- Calibrated probabilities and threshold tuning for the imbalanced target.
+- Per-track or track-group models, and a pit-window recommendation layer.
+- Richer dashboard prediction views.
 
-* Add more 2025 races
-* Create a multi-race ML dataset
-* Compare tyre degradation across circuits
-* Train on several races and test on an unseen race
-* Add weather features
-* Improve the Streamlit predictor with driver-team auto-matching
-* Add clearer track-status labels
-* Build a pit strategy recommendation model
-* Explore race simulation and strategy comparison
+## Tools
 
-## Future Research Direction
-
-The long-term goal is to move from a single-race analysis project into a broader F1 strategy analytics system.
-
-Future versions may answer questions such as:
-
-* Which tracks show the highest tyre degradation?
-* Can a model trained on previous races predict lap times at a new race?
-* How does tyre degradation differ by compound and circuit?
-* When does pitting become strategically beneficial?
-* Can machine learning support pit-window and strategy decisions?
+Python · FastF1 · pandas · NumPy · scikit-learn · XGBoost · SHAP · Matplotlib ·
+Plotly · Streamlit · joblib · pytest
