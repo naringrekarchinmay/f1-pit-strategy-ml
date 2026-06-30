@@ -41,4 +41,4 @@ This summarizes what drives the global `will_pit_next_3_laps` model. Predictions
 ## Figures
 - `outputs/figures/explainability/global_feature_importance.png`
 - `outputs/figures/explainability/permutation_importance.png`
-- SHAP summary skipped (SHAP unavailable or incompatible with this model).
+- `outputs/figures/explainability/shap_summary.png`
