@@ -37,6 +37,10 @@ if not shown:
 st.subheader("Explainability summary")
 report = REPORTS_DIR / "model_explainability_summary.md"
 if report.is_file():
-    st.markdown(report.read_text())
+    text = report.read_text()
+    # The report ends with a "## Figures" list of file paths — useful in the
+    # standalone .md, but redundant here since the images render above.
+    text = text.split("## Figures")[0].rstrip()
+    st.markdown(text)
 else:
     st.info("Explainability summary report not found.")
