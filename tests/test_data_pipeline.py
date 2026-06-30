@@ -32,3 +32,36 @@ def test_standard_columns_cover_required_fields():
         "stint", "track_status", "is_pit_lap", "pit_stop_count",
     }
     assert required.issubset(set(STANDARD_LAP_COLUMNS))
+
+
+def test_combine_skips_failed_races(tmp_path):
+    import src.data.build_all_tracks_dataset as b
+
+    good = tmp_path / "ok.csv"
+    pd.DataFrame(
+        {
+            "year": [2025, 2025],
+            "race_name": ["Monaco", "Monaco"],
+            "driver": ["VER", "VER"],
+            "lap_number": [1, 2],
+        }
+    ).to_csv(good, index=False)
+
+    summary = pd.DataFrame(
+        [
+            {
+                "year": 2025, "race_name": "Monaco", "session_type": "R",
+                "status": "success", "rows_loaded": 2, "output_path": str(good),
+                "error_message": "",
+            },
+            {
+                "year": 2025, "race_name": "Nowhere", "session_type": "R",
+                "status": "failed", "rows_loaded": 0, "output_path": "",
+                "error_message": "boom",
+            },
+        ]
+    )
+
+    combined = b.combine_race_files(summary, 2025, write=False)
+    assert len(combined) == 2
+    assert set(combined["race_name"]) == {"Monaco"}
