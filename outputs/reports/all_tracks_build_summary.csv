@@ -10,7 +10,7 @@ year,race_name,session_type,status,rows_loaded,output_path,error_message
 2025,Spain,R,success,1203,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/spain/race_laps.csv,
 2025,Canada,R,success,1349,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/canada/race_laps.csv,
 2025,Austria,R,success,1126,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/austria/race_laps.csv,
-2025,Great Britain,R,success,1126,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/great_britain/race_laps.csv,
+2025,Great Britain,R,success,825,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/great_britain/race_laps.csv,
 2025,Belgium,R,success,879,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/belgium/race_laps.csv,
 2025,Hungary,R,success,1368,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/hungary/race_laps.csv,
 2025,Netherlands,R,success,1364,/Users/chinmaynaringrekar/Documents/Projects/f1-pit-strategy-ml/data/processed/2025/netherlands/race_laps.csv,
