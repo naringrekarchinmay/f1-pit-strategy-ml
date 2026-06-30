@@ -163,18 +163,101 @@ def setup_fastf1_cache(cache_dir: Path | None = None) -> Path:
 
 
 # --------------------------------------------------------------------------- #
+# Event resolution
+# --------------------------------------------------------------------------- #
+# Map common display names to the exact FastF1 ``EventName``. This avoids
+# FastF1's fuzzy matching, which can resolve an ambiguous display name to the
+# wrong round (e.g. "Great Britain" -> the Austrian GP, or "United States" ->
+# Miami/Las Vegas, which all share the "United States" country).
+EVENT_NAME_ALIASES: dict[str, str] = {
+    "australia": "Australian Grand Prix",
+    "china": "Chinese Grand Prix",
+    "japan": "Japanese Grand Prix",
+    "bahrain": "Bahrain Grand Prix",
+    "saudi arabia": "Saudi Arabian Grand Prix",
+    "miami": "Miami Grand Prix",
+    "emilia romagna": "Emilia Romagna Grand Prix",
+    "monaco": "Monaco Grand Prix",
+    "spain": "Spanish Grand Prix",
+    "canada": "Canadian Grand Prix",
+    "austria": "Austrian Grand Prix",
+    "great britain": "British Grand Prix",
+    "britain": "British Grand Prix",
+    "belgium": "Belgian Grand Prix",
+    "hungary": "Hungarian Grand Prix",
+    "netherlands": "Dutch Grand Prix",
+    "italy": "Italian Grand Prix",
+    "azerbaijan": "Azerbaijan Grand Prix",
+    "singapore": "Singapore Grand Prix",
+    "united states": "United States Grand Prix",
+    "mexico city": "Mexico City Grand Prix",
+    "mexico": "Mexico City Grand Prix",
+    "sao paulo": "São Paulo Grand Prix",
+    "são paulo": "São Paulo Grand Prix",
+    "las vegas": "Las Vegas Grand Prix",
+    "qatar": "Qatar Grand Prix",
+    "abu dhabi": "Abu Dhabi Grand Prix",
+}
+
+
+def resolve_event_round(year: int, race_name: str) -> int | None:
+    """Resolve a display race name to its calendar round number.
+
+    Uses an explicit ``EventName`` alias table first (exact, unambiguous), then
+    falls back to a case-insensitive substring search over EventName / Country /
+    Location. Returns ``None`` if no confident match is found, in which case the
+    caller may fall back to FastF1's own name matching.
+    """
+    if fastf1 is None:
+        return None
+    try:
+        schedule = fastf1.get_event_schedule(year)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not load %d event schedule: %s", year, exc)
+        return None
+
+    key = str(race_name).strip().lower()
+    alias = EVENT_NAME_ALIASES.get(key)
+    if alias is not None:
+        exact = schedule[schedule["EventName"] == alias]
+        if not exact.empty:
+            return int(exact["RoundNumber"].iloc[0])
+
+    # Fallback: substring match across name/country/location (skip testing=round 0).
+    for col in ("EventName", "Country", "Location"):
+        if col not in schedule.columns:
+            continue
+        hits = schedule[
+            schedule[col].astype(str).str.lower().str.contains(key, na=False)
+            & (schedule["RoundNumber"] > 0)
+        ]
+        if len(hits) == 1:
+            return int(hits["RoundNumber"].iloc[0])
+    logger.warning("Could not confidently resolve round for '%s' %d.", race_name, year)
+    return None
+
+
+# --------------------------------------------------------------------------- #
 # Loading & extraction
 # --------------------------------------------------------------------------- #
 def load_race_session(year: int, race_name: str, session_type: str = "R"):
     """Load and return a FastF1 session for the given race.
 
-    Raises a clear error if FastF1 is unavailable or the session fails to load.
+    Resolves the race to an exact calendar round first (avoiding ambiguous
+    fuzzy matches), then loads by round number. Falls back to FastF1's name
+    matching only if the round cannot be resolved.
     """
     if fastf1 is None:
         raise ImportError("fastf1 is not installed; cannot load sessions.")
     logger.info("Loading session: %s %s (%s)", year, race_name, session_type)
+    round_number = resolve_event_round(year, race_name)
     try:
-        session = fastf1.get_session(year, race_name, session_type)
+        if round_number is not None:
+            logger.info("Resolved '%s' -> %d round %d", race_name, year, round_number)
+            session = fastf1.get_session(year, round_number, session_type)
+        else:
+            logger.warning("Falling back to FastF1 name matching for '%s'.", race_name)
+            session = fastf1.get_session(year, race_name, session_type)
         session.load()
     except Exception as exc:  # noqa: BLE001 - re-raised with context below
         logger.error("Failed to load %s %s (%s): %s", year, race_name, session_type, exc)
