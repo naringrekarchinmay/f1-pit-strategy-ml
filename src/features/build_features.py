@@ -124,11 +124,23 @@ def add_race_context_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_tire_stint_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add ``current_stint_lap`` and ``laps_since_pit`` (within-stint age)."""
+    """Add ``current_stint_lap`` and ``laps_since_pit`` (within-stint age).
+
+    The raw ``stint`` field is occasionally missing for individual laps; we use a
+    per-driver forward/back-filled copy purely as the grouping key so the derived
+    features are never NaN (the original ``stint`` column is left untouched).
+    """
     df = df.copy()
-    grp = df.groupby(_GROUP_KEYS + ["stint"])
+    stint_key = (
+        df.groupby(_GROUP_KEYS)["stint"].ffill().bfill().fillna(1)
+        if "stint" in df.columns
+        else pd.Series(1, index=df.index)
+    )
+    df["_stint_key"] = stint_key
+    grp = df.groupby(_GROUP_KEYS + ["_stint_key"])
     df["current_stint_lap"] = grp.cumcount() + 1
     df["laps_since_pit"] = df["current_stint_lap"] - 1
+    df = df.drop(columns=["_stint_key"])
     return df
 
 

@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -56,3 +57,15 @@ def test_select_features_excludes_leakage():
 def test_build_models_returns_three_estimators():
     models = build_models()
     assert {"logistic_regression", "random_forest", "gradient_boosting"} <= set(models)
+
+
+def test_models_fit_and_predict_on_small_sample():
+    # Phase 11: the training pieces must run on a small sample without error.
+    df = _toy_model_ready()
+    X, y, _ = select_features(df)
+    train_idx, test_idx = race_aware_split(X, y, df["race_name"], test_size=0.5)
+    for name, model in build_models().items():
+        model.fit(X.iloc[train_idx], y.iloc[train_idx])
+        preds = model.predict(X.iloc[test_idx])
+        assert len(preds) == len(test_idx)
+        assert set(np.unique(preds)) <= {0, 1}
