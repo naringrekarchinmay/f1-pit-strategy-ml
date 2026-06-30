@@ -112,6 +112,20 @@ _SC_VSC_CODES = {"4", "6", "7"}
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+def relative_to_root(path: Path | str) -> str:
+    """Return ``path`` relative to the project root as a portable posix string.
+
+    Keeps provenance/output paths machine-independent (no absolute home
+    directory) so committed CSVs are portable across machines. Falls back to the
+    given path if it lives outside the project tree.
+    """
+    p = Path(path)
+    try:
+        return p.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return p.as_posix()
+
+
 def normalize_race_name(race_name: str) -> str:
     """Return an ASCII snake_case slug for a race name.
 
@@ -408,16 +422,21 @@ def save_race_outputs(
     laps_path = out_dir / "race_laps.csv"
     weather_path = out_dir / "weather.csv"
 
-    # Record provenance now that we know the destination path.
+    # Record provenance as a portable (relative) path now that we know it.
+    rel_laps_path = relative_to_root(laps_path)
     if not laps_df.empty and "source_file" in laps_df.columns:
         laps_df = laps_df.copy()
-        laps_df["source_file"] = str(laps_path)
+        laps_df["source_file"] = rel_laps_path
 
     laps_df.to_csv(laps_path, index=False)
     weather_df.to_csv(weather_path, index=False)
     logger.info("Saved laps -> %s (%d rows)", laps_path, len(laps_df))
     logger.info("Saved weather -> %s (%d rows)", weather_path, len(weather_df))
-    return {"laps_path": str(laps_path), "weather_path": str(weather_path)}
+    # Return relative paths so downstream reports/summaries stay portable.
+    return {
+        "laps_path": rel_laps_path,
+        "weather_path": relative_to_root(weather_path),
+    }
 
 
 # --------------------------------------------------------------------------- #

@@ -24,9 +24,18 @@ REPORTS_DIR = PROJECT_ROOT / "outputs" / "reports"
 FIGURES_DIR = PROJECT_ROOT / "outputs" / "figures"
 MODEL_DIR = PROJECT_ROOT / "models" / "global"
 
+# Default season (used only when no processed data is found at all).
 YEAR = 2025
-LAPS_PATH = PROCESSED_DIR / str(YEAR) / "laps_all_tracks.csv"
-MODEL_READY_PATH = PROCESSED_DIR / str(YEAR) / "model_ready_all_tracks.csv"
+
+
+def available_years() -> list[int]:
+    """Discover every season with a combined laps dataset under data/processed."""
+    years = []
+    if PROCESSED_DIR.is_dir():
+        for child in sorted(PROCESSED_DIR.iterdir()):
+            if child.is_dir() and child.name.isdigit() and (child / "laps_all_tracks.csv").is_file():
+                years.append(int(child.name))
+    return years or [YEAR]
 
 
 @st.cache_data(show_spinner=False)
@@ -41,16 +50,30 @@ def safe_read_csv(path_str: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _load_all_years(filename: str) -> pd.DataFrame:
+    """Concatenate ``data/processed/<year>/<filename>`` across all seasons.
+
+    This keeps the dashboard (and its Year filter) honest and future-proof: add
+    another season's data and it appears automatically, with no code change.
+    """
+    frames = []
+    for year in available_years():
+        df = safe_read_csv(str(PROCESSED_DIR / str(year) / filename))
+        if not df.empty:
+            frames.append(df)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 @st.cache_data(show_spinner=False)
 def load_laps() -> pd.DataFrame:
-    """Load the combined all-track laps dataset."""
-    return safe_read_csv(str(LAPS_PATH))
+    """Load the combined all-track laps dataset across every available season."""
+    return _load_all_years("laps_all_tracks.csv")
 
 
 @st.cache_data(show_spinner=False)
 def load_model_ready() -> pd.DataFrame:
-    """Load the model-ready (feature-engineered) dataset."""
-    return safe_read_csv(str(MODEL_READY_PATH))
+    """Load the model-ready dataset across every available season."""
+    return _load_all_years("model_ready_all_tracks.csv")
 
 
 @st.cache_resource(show_spinner=False)
@@ -115,8 +138,8 @@ def apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
 def dataset_status() -> dict:
     """Summarize which artifacts are present (for the overview page)."""
     return {
-        "laps": LAPS_PATH.is_file(),
-        "model_ready": MODEL_READY_PATH.is_file(),
+        "laps": not load_laps().empty,
+        "model_ready": not load_model_ready().empty,
         "model": (MODEL_DIR / "pit_strategy_model.pkl").is_file(),
         "metadata": (MODEL_DIR / "model_metadata.json").is_file(),
     }
