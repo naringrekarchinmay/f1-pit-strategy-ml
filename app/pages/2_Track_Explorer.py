@@ -7,8 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import plotly.express as px
 import streamlit as st
 
-from _shared import load_laps
+from _shared import inject_theme, load_laps
 
+inject_theme()
 st.title("Track Explorer")
 
 laps = load_laps()

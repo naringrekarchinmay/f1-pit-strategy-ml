@@ -6,8 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st
 
-from _shared import load_laps, load_metadata, load_model_ready
+from _shared import inject_theme, load_laps, load_metadata, load_model_ready
 
+inject_theme()
 st.title("Project Overview")
 
 st.markdown(

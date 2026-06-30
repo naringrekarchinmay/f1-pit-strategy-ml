@@ -7,8 +7,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import plotly.express as px
 import streamlit as st
 
-from _shared import REPORTS_DIR, load_metadata, load_model, load_model_ready, safe_read_csv
+from _shared import (
+    REPORTS_DIR,
+    inject_theme,
+    load_metadata,
+    load_model,
+    load_model_ready,
+    safe_read_csv,
+)
 
+inject_theme()
 st.title("Model Predictions")
 
 model = load_model()

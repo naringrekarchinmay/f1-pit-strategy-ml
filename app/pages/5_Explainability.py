@@ -6,8 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st
 
-from _shared import FIGURES_DIR, REPORTS_DIR
+from _shared import FIGURES_DIR, REPORTS_DIR, inject_theme
 
+inject_theme()
 st.title("Explainability")
 
 EXPL_DIR = FIGURES_DIR / "explainability"

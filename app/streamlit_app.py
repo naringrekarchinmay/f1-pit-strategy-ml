@@ -9,9 +9,10 @@ page introduces the project and links to the analysis pages.
 """
 import streamlit as st
 
-from _shared import dataset_status, load_laps
+from _shared import dataset_status, inject_theme, load_laps
 
 st.set_page_config(page_title="F1 Pit Strategy ML", page_icon="🏎️", layout="wide")
+inject_theme()
 
 st.title("🏎️ F1 Pit Strategy ML — 2025 Season")
 st.markdown(

@@ -22,6 +22,7 @@ import matplotlib
 
 matplotlib.use("Agg")  # headless figure rendering
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import pandas as pd
 import sklearn
@@ -48,6 +49,8 @@ from src.features.build_features import (  # noqa: E402
     LEAKAGE_COLUMNS,
     TARGET_COLUMN,
 )
+from src import plotting as pal  # noqa: E402
+from src.plotting import apply_dark_theme  # noqa: E402
 
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 REPORTS_DIR = PROJECT_ROOT / "outputs" / "reports"
@@ -157,32 +160,38 @@ def evaluate(model, X_test, y_test) -> dict:
 
 
 def _plot_confusion(metrics: dict, path: Path) -> None:
+    apply_dark_theme()
     cm = np.array([[metrics["tn"], metrics["fp"]], [metrics["fn"], metrics["tp"]]])
-    fig, ax = plt.subplots(figsize=(4.5, 4))
-    im = ax.imshow(cm, cmap="Blues")
+    cmap = LinearSegmentedColormap.from_list("f1red", [pal.SURFACE, pal.ACCENT])
+    fig, ax = plt.subplots(figsize=(4.8, 4.2))
+    im = ax.imshow(cm, cmap=cmap)
     for (i, j), v in np.ndenumerate(cm):
-        ax.text(j, i, str(v), ha="center", va="center",
-                color="white" if v > cm.max() / 2 else "black")
+        ax.text(j, i, f"{v:,}", ha="center", va="center", fontweight="bold",
+                color="#ffffff" if v > cm.max() / 2 else pal.INK)
     ax.set_xticks([0, 1]); ax.set_yticks([0, 1])
     ax.set_xticklabels(["No pit", "Pit ≤3"]); ax.set_yticklabels(["No pit", "Pit ≤3"])
     ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
     ax.set_title("Confusion matrix (global, held-out races)")
-    fig.colorbar(im, fraction=0.046)
-    fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
+    ax.grid(False)
+    cbar = fig.colorbar(im, fraction=0.046)
+    cbar.ax.tick_params(colors=pal.MUTED)
+    fig.tight_layout(); fig.savefig(path); plt.close(fig)
 
 
 def _plot_model_comparison(all_metrics: dict, path: Path) -> None:
-    names = list(all_metrics)
-    f1s = [all_metrics[n]["f1"] for n in names]
-    aucs = [all_metrics[n].get("roc_auc", float("nan")) for n in names]
+    apply_dark_theme()
+    names = [n.replace("_", " ").title() for n in all_metrics]
+    f1s = [all_metrics[n]["f1"] for n in all_metrics]
+    aucs = [all_metrics[n].get("roc_auc", float("nan")) for n in all_metrics]
     x = np.arange(len(names))
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.bar(x - 0.2, f1s, width=0.4, label="F1")
-    ax.bar(x + 0.2, aucs, width=0.4, label="ROC AUC")
-    ax.set_xticks(x); ax.set_xticklabels(names, rotation=15, ha="right")
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    ax.bar(x - 0.2, f1s, width=0.4, label="F1", color=pal.ACCENT)
+    ax.bar(x + 0.2, aucs, width=0.4, label="ROC AUC", color=pal.ACCENT_SOFT, alpha=0.85)
+    ax.set_xticks(x); ax.set_xticklabels(names, rotation=12, ha="right")
     ax.set_ylim(0, 1); ax.set_ylabel("Score"); ax.set_title("Model comparison (held-out races)")
+    ax.grid(axis="x", visible=False)
     ax.legend()
-    fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
+    fig.tight_layout(); fig.savefig(path); plt.close(fig)
 
 
 def _race_level_metrics(model, X_test, y_test, race_test) -> pd.DataFrame:

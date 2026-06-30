@@ -24,7 +24,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import sys as _sys
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(PROJECT_ROOT))
+
+from src import plotting as pal  # noqa: E402
+from src.plotting import apply_dark_theme  # noqa: E402
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 FIGURES_DIR = PROJECT_ROOT / "outputs" / "figures" / "track_comparison"
 REPORTS_DIR = PROJECT_ROOT / "outputs" / "reports"
@@ -122,13 +129,15 @@ def sc_vsc_pit_impact(df: pd.DataFrame) -> pd.DataFrame:
 # Figures
 # --------------------------------------------------------------------------- #
 def _barh(data: pd.DataFrame, value_col: str, title: str, xlabel: str, path: Path) -> None:
-    fig, ax = plt.subplots(figsize=(7, max(4, 0.35 * len(data))))
-    ax.barh(data["race_name"], data[value_col], color="#1f77b4")
+    apply_dark_theme()
+    fig, ax = plt.subplots(figsize=(7.5, max(4, 0.36 * len(data))))
+    ax.barh(data["race_name"], data[value_col], color=pal.ACCENT)
     ax.invert_yaxis()
     ax.set_xlabel(xlabel)
     ax.set_title(title)
+    ax.grid(axis="y", visible=False)
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(path)
     plt.close(fig)
 
 
@@ -165,20 +174,32 @@ def run_track_comparison(
     # Compound usage: stacked bar.
     pivot = compound.pivot_table(index="race_name", columns="compound", values="share",
                                  fill_value=0)
-    fig, ax = plt.subplots(figsize=(9, 6))
-    pivot.plot(kind="barh", stacked=True, ax=ax, colormap="tab10")
+    # Canonical F1 compound colours (also on-brand: SOFT is red).
+    compound_colors = {
+        "SOFT": "#E10600", "MEDIUM": "#F7C82E", "HARD": "#EDEDED",
+        "INTERMEDIATE": "#3BB143", "WET": "#2E6FE0", "UNKNOWN": "#7A7F8A",
+    }
+    apply_dark_theme()
+    fig, ax = plt.subplots(figsize=(9, 6.5))
+    pivot.plot(kind="barh", stacked=True, ax=ax,
+               color=[compound_colors.get(c, "#7A7F8A") for c in pivot.columns])
     ax.set_xlabel("Share of laps"); ax.set_title("Tyre compound usage by race")
-    ax.legend(title="compound", bbox_to_anchor=(1.02, 1), loc="upper left")
-    fig.tight_layout(); fig.savefig(fig_dir / "compound_usage_by_race.png", dpi=120)
+    ax.grid(axis="y", visible=False)
+    leg = ax.legend(title="compound", bbox_to_anchor=(1.02, 1), loc="upper left")
+    leg.get_title().set_color(pal.INK)
+    fig.tight_layout(); fig.savefig(fig_dir / "compound_usage_by_race.png")
     plt.close(fig)
 
     # Pit lap distribution histogram (race percentage).
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.hist(pit_dist["lap_percentage"].dropna(), bins=20, color="#ff7f0e")
+    apply_dark_theme()
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
+    ax.hist(pit_dist["lap_percentage"].dropna(), bins=20, color=pal.ACCENT,
+            edgecolor=pal.BG)
     ax.set_xlabel("Race completion at pit-in (fraction)")
     ax.set_ylabel("Number of pit stops")
     ax.set_title("Pit-in timing distribution (all races)")
-    fig.tight_layout(); fig.savefig(fig_dir / "pit_lap_distribution_by_race.png", dpi=120)
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout(); fig.savefig(fig_dir / "pit_lap_distribution_by_race.png")
     plt.close(fig)
 
     # Race-level model performance (if metrics available).
@@ -190,12 +211,14 @@ def run_track_comparison(
         race_metrics = pd.read_csv(race_metrics_path)
         if not race_metrics.empty:
             rm = race_metrics.sort_values("f1", ascending=False)
-            fig, ax = plt.subplots(figsize=(7, max(3, 0.4 * len(rm))))
-            ax.barh(rm["race_name"], rm["f1"], color="#2ca02c")
+            apply_dark_theme()
+            fig, ax = plt.subplots(figsize=(7.5, max(3, 0.42 * len(rm))))
+            ax.barh(rm["race_name"], rm["f1"], color=pal.ACCENT)
             ax.invert_yaxis(); ax.set_xlabel("F1 (test races)")
             ax.set_title("Race-level model performance (held-out)")
+            ax.grid(axis="y", visible=False)
             fig.tight_layout()
-            fig.savefig(fig_dir / "race_level_model_performance.png", dpi=120)
+            fig.savefig(fig_dir / "race_level_model_performance.png")
             plt.close(fig)
 
     _write_report(report_path, df, stops, stints, compound, sc_impact, race_metrics)

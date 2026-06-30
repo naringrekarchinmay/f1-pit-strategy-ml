@@ -31,6 +31,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models.train_global_model import load_model_ready, select_features  # noqa: E402
+from src import plotting as pal  # noqa: E402
+from src.plotting import apply_dark_theme, style_fig  # noqa: E402
 
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MODEL_DIR = PROJECT_ROOT / "models" / "global"
@@ -95,41 +97,79 @@ def permutation_feature_importance(model, X, y, sample: int = 4000) -> pd.DataFr
     return out.sort_values("importance", ascending=False).reset_index(drop=True)
 
 
-def shap_summary(model, X, fig_path: Path, sample: int = 1500) -> bool:
-    """Produce a SHAP summary plot. Returns False (and logs) if unsupported."""
+def _shap_values_for(model, Xs):
+    """Return per-sample SHAP values for the positive class, model-agnostically.
+
+    Uses the fast TreeExplainer for tree models, and a model-agnostic explainer
+    over ``predict_proba`` for everything else (e.g. a scaled logistic-regression
+    pipeline, which TreeExplainer does not support).
+    """
+    import shap
+
+    est = _final_estimator(model)
+    if hasattr(est, "feature_importances_"):  # tree ensemble
+        values = shap.TreeExplainer(est).shap_values(Xs)
+        if isinstance(values, list):
+            values = values[1]
+        elif isinstance(values, np.ndarray) and values.ndim == 3:
+            values = values[:, :, 1]
+        return values
+
+    # Model-agnostic path: explain P(pit) on a small background for speed.
+    background = shap.utils.sample(Xs, min(100, len(Xs)), random_state=42)
+
+    def f(data):
+        return model.predict_proba(pd.DataFrame(data, columns=Xs.columns))[:, 1]
+
+    explainer = shap.Explainer(f, background)
+    return explainer(Xs).values
+
+
+def shap_summary(model, X, fig_path: Path, sample: int = 600) -> bool:
+    """Produce a dark-themed SHAP beeswarm summary.
+
+    Returns False (and removes any stale figure) if SHAP is unavailable or fails.
+    """
     try:
         import shap
     except ImportError:
         logger.warning("SHAP not installed; skipping SHAP summary.")
+        fig_path.unlink(missing_ok=True)
         return False
     try:
-        est = _final_estimator(model)
-        Xs = X.sample(min(sample, len(X)), random_state=42)
-        explainer = shap.TreeExplainer(est)
-        shap_values = explainer.shap_values(Xs)
-        # Binary classifiers may return a list (per class) or 3D array.
-        if isinstance(shap_values, list):
-            shap_values = shap_values[1]
-        elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
-            shap_values = shap_values[:, :, 1]
+        # Cast to float so SHAP's internal finiteness checks accept boolean
+        # one-hot / flag columns.
+        Xs = X.sample(min(sample, len(X)), random_state=42).astype(float)
+        shap_values = _shap_values_for(model, Xs)
+        apply_dark_theme()
         plt.figure()
-        shap.summary_plot(shap_values, Xs, show=False)
-        plt.tight_layout()
-        plt.savefig(fig_path, dpi=120, bbox_inches="tight")
+        shap.summary_plot(shap_values, Xs, show=False, plot_size=(9, 7),
+                          color_bar_label="Feature value")
+        fig = plt.gcf()
+        style_fig(fig)
+        plt.savefig(fig_path, bbox_inches="tight", facecolor=pal.BG)
         plt.close()
         logger.info("Saved SHAP summary -> %s", fig_path)
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning("SHAP summary failed (%s); skipping.", exc)
+        fig_path.unlink(missing_ok=True)
+        plt.close("all")
         return False
 
 
 def _barh(data: pd.DataFrame, title: str, path: Path, top: int = 15) -> None:
+    apply_dark_theme()
     d = data.head(top).iloc[::-1]
-    fig, ax = plt.subplots(figsize=(7, max(4, 0.4 * len(d))))
-    ax.barh(d["feature"], d["importance"], color="#9467bd")
+    fig, ax = plt.subplots(figsize=(8, max(4.2, 0.42 * len(d))))
+    # Gradient of red by rank: strongest feature is brightest.
+    n = len(d)
+    colors = [pal.RED_SEQUENCE[min(len(pal.RED_SEQUENCE) - 1,
+              int(i / max(n - 1, 1) * (len(pal.RED_SEQUENCE) - 1)))] for i in range(n)]
+    ax.barh(d["feature"], d["importance"], color=colors)
     ax.set_xlabel("Importance"); ax.set_title(title)
-    fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout(); fig.savefig(path); plt.close(fig)
 
 
 def run_explainability(
